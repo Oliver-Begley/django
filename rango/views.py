@@ -2,6 +2,9 @@ from rango.forms import CategoryForm
 from rango.forms import PageForm
 from rango.forms import UserForm, UserProfileForm
 from django.shortcuts import render
+from django.contrib.auth import authenticate, login
+from django.http import HttpResponseRedirect, HttpResponse
+from django.core.urlresolvers import reverse
 
 from django.http import HttpResponse
 
@@ -91,6 +94,40 @@ def add_page(request, category_name_slug):
     context_dict = {'form':form, 'category': category}
     return render(request, 'rango/add_page.html', context_dict)
 
+def user_login(request):
+
+    # If HTTP POST, pull out form data and process it.
+    if request.method == 'POST':
+        # Gather username and password provided by user
+        # This information is obtained from the login form
+        # We use request.POST.get('<variable>') as opposed to request.POST['<variable>'] because
+        # the request.POST.get('<variable>') returns None if the value does not exist
+        # while request.POST['<variable>'] will raise a keyError exception
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        # Attempt to log the user in with the supplied credentials.
+        # A User object is returned if correct - None if not.
+        user = authenticate(username=username, password=password)
+
+        # A valid user logged in?
+        if user:
+            # Check if the account is active (can be used).
+            # If so, log the user in and redirect them to the homepage.
+            if user.is_active:
+                login(request, user)
+                return HttpResponseRedirect(reverse('index'))
+            # The account is inactive; tell by adding variable to the template context.
+            else:
+                return HttpResponse("Your rango account is disabled")
+        # Invalid login details supplied!
+        else:
+            print "Invalid login details: {0}, {1}".format(username, password)
+            return HttpResponse("Invalid login details supplied")
+
+    # Not a HTTP POST - most likely a HTTP GET. In this case, we render the login form for the user.
+    else:
+        return render(request, 'rango/login.html', {})
 
 
 
