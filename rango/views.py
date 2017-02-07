@@ -2,9 +2,10 @@ from rango.forms import CategoryForm
 from rango.forms import PageForm
 from rango.forms import UserForm, UserProfileForm
 from django.shortcuts import render
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
+from django.contrib.auth.decorators import login_required
 
 from django.http import HttpResponse
 
@@ -45,7 +46,7 @@ def show_category(request, category_name_slug):
 
     return render(request, 'rango/category.html', context_dict)
 
-
+@login_required
 def add_category(request):
     form = CategoryForm()
 
@@ -71,7 +72,7 @@ def add_category(request):
     # Render the form with error messages (if any)
     return render(request, 'rango/add_category.html',{'form':form})
 
-
+@login_required
 def add_page(request, category_name_slug):
     try:
         category = Category.objects.get(slug=category_name_slug)
@@ -215,6 +216,17 @@ def register(request):
                       {'user_form':user_form,
                        'profile_form':profile_form,
                        'registered':registered})
+
+
+@login_required
+def restricted(request):
+    return render(request, 'rango/restricted.html', {})
+
+def user_logout(request):
+    # Since we know the user is logged in, we can now just log them out
+    logout(request)
+    #Take the user back to the homepage
+    return HttpResponseRedirect(reverse('index'))
 
 
 
