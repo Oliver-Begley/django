@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.http import HttpResponseRedirect, HttpResponse
 from django.core.urlresolvers import reverse
 from django.contrib.auth.decorators import login_required
+from datetime import datetime
 
 from django.http import HttpResponse
 
@@ -13,6 +14,8 @@ from django.http import HttpResponse
 from rango.models import Category
 #Import the page model
 from rango.models import Page
+
+
 
 def show_category(request, category_name_slug):
     # Create a context dictionary which we can pass
@@ -124,7 +127,7 @@ def user_login(request):
         # Invalid login details supplied!
         else:
             print "Invalid login details: {0}, {1}".format(username, password)
-            return HttpResponse("Invalid login details supplied")
+            return HttpResponse("Invalid login details supplied.")
 
     # Not a HTTP POST - most likely a HTTP GET. In this case, we render the login form for the user.
     else:
@@ -133,6 +136,8 @@ def user_login(request):
 
 
 def index(request):
+    #Set test cookie
+    request.session.set_test_cookie()
     # Query the database for a list of ALL categories currently stored.
     # Order the categories by no. likes in descending order.
     # Retrieve the top 5 only - or all if less than 5.
@@ -145,20 +150,34 @@ def index(request):
     # Construct a dictionary to pass to the template engine as it's context.
     context_dict = {'categories':category_list, 'pages':pages_list}
 
-    # Return a rendered response to send to the client.
-    # We make use of the shortcut function to make our lives easier.
-    # Not that the first parameter is the template we wish to use.
-    return render(request, 'rango/index.html', context = context_dict)
+    #Call function to handle the cookies
+    visitor_cookie_handler(request)
 
-    # return HttpResponse("Rango says hey there partner! <br/> <a href='/rango/about/'> About page </a>")
+    context_dict['visits'] = request.session['visits']
+
+    #Obtain our Response object early so we can add cookie information
+
+    response = render(request, 'rango/index.html', context_dict)
+    return response
+
 
 def about(request):
     context_dict = {}
+    if request.session.test_cookie_worked():
+        print("TEST COOKIE WORKED")
+        request.session.delete_test_cookie()
     # prints out whether the method is a GET or a POST
     print(request.method)
     # prints out the user name, if no one is logged in it prints 'AnonymousUser'
     print(request.user)
-    return render(request, 'rango/about.html',context = context_dict)
+
+    visitor_cookie_handler(request)
+
+    context_dict['visits'] = request.session['visits']
+
+    response = render(request, 'rango/about.html', context_dict)
+
+    return response
 
 
 def register(request):
@@ -228,10 +247,34 @@ def user_logout(request):
     #Take the user back to the homepage
     return HttpResponseRedirect(reverse('index'))
 
+def get_server_side_cookie(request,cookie,default_val=None):
+    val = request.session.get(cookie)
+    if not val:
+        val = default_val
+    return val
 
+def visitor_cookie_handler(request):
+    # Get the number of visits to the site.
+    # We use the COOKIES.get() function to obtain the visits cookie.
+    # If the cookie exists, the value returned is casted to an integer.
+    # If the cookie doesn't exist, then the default value of 1 is used.
+    visits = int(request.COOKIES.get('visits', '1'))
 
+    last_visit_cookie = request.COOKIES.get('last_visit', str(datetime.now()))
 
-
+    last_visit_time = datetime.strptime(last_visit_cookie[:-7],
+                                        '%Y-%m-%d %H:%M:%S')
+    # If it's been more than a day since the last visit...
+    if (datetime.now() - last_visit_time).days > 0:
+        visits = visits + 1
+        # update the last visit cookie now that we have updated the count
+        request.session['last_visit'] = str(datetime.now())
+    else:
+        visits = 1
+        # set the last visit cookie
+        request.session['last_visit'] = str(datetime.now())
+    # Update/set the visits cookie
+    request.session['visits'] = visits
 
 
 
